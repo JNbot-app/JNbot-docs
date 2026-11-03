@@ -1,0 +1,9 @@
+{
+  "label": "JNbot Client",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "slug": "/jnbotclient",
+    "description": "Control Minecraft clients with typed actions, automation tasks, events, inventory tools, navigation, and plugin control screens."
+  }
+}

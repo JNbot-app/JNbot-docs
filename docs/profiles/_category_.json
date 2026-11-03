@@ -1,0 +1,9 @@
+{
+  "label": "Server profiles",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "slug": "/profiles",
+    "description": "Add and configure the Minecraft servers JNbot can connect to."
+  }
+}

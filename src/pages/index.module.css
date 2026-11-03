@@ -1,0 +1,185 @@
+/* Documentation landing page — the same dark reading system as jnbot.net. */
+
+/* ---- Hero --------------------------------------------------------- */
+
+.hero {
+  position: relative;
+  overflow: clip;
+  padding: 5.5rem 0 5rem;
+  border-bottom: 1px solid var(--jn-line);
+  background: var(--jn-bg-2);
+}
+
+.gridBg {
+  display: none;
+}
+
+.heroInner {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: center;
+  gap: clamp(2.5rem, 6vw, 5rem);
+}
+
+.heroTitle {
+  font-family: var(--jn-font-display);
+  font-size: clamp(2.8rem, 5vw, 4.25rem);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+  margin: 0;
+}
+
+.heroTitle span {
+  color: var(--jn-gold);
+}
+
+.heroSubtitle {
+  margin-top: 1.5rem;
+  max-width: 30rem;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--jn-muted);
+}
+
+.heroButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.1rem;
+  margin-top: 2rem;
+}
+
+/* ---- Hero visual: first-session guide ----------------------------- */
+
+.heroVisual {
+  position: relative;
+  max-width: 35rem;
+}
+
+.window {
+  background: var(--jn-bg);
+  border: 1px solid var(--jn-line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 24px 52px -34px rgba(0, 0, 0, 0.85);
+}
+
+.windowBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  background: var(--jn-bg-2);
+  border-bottom: 1px solid var(--jn-line);
+}
+.dots {
+  display: flex;
+  gap: 6px;
+}
+.dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--jn-line-2);
+}
+
+.windowTitle {
+  font-family: var(--jn-font-mono);
+  font-size: 11px;
+  color: var(--jn-dim);
+}
+
+.guideSteps {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+}
+
+.guideStep {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.8rem;
+  border: 1px solid var(--jn-line);
+  border-radius: 8px;
+  color: var(--jn-text);
+  text-decoration: none;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.guideStep:hover {
+  border-color: var(--jn-line-2);
+  background: var(--jn-bg-2);
+  color: var(--jn-text);
+  text-decoration: none;
+}
+
+.guideNumber {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--jn-bg-2);
+  color: var(--jn-gold);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* ---- CTA ---------------------------------------------------------- */
+
+.cta {
+  padding: 5rem 0 6.5rem;
+}
+
+.ctaCard {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--jn-line);
+  border-radius: 12px;
+  background: var(--jn-bg-2);
+  padding: clamp(2rem, 5vw, 4rem);
+}
+
+.ctaContent {
+  position: relative;
+  max-width: 38rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ctaTitle {
+  font-family: var(--jn-font-display);
+  font-size: clamp(2rem, 3.6vw, 3rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  margin: 0;
+}
+
+.ctaText {
+  margin-top: 1rem;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--jn-muted);
+}
+
+/* ---- Responsive --------------------------------------------------- */
+
+@media screen and (max-width: 996px) {
+  .hero {
+    padding: 3.5rem 0 3.75rem;
+  }
+  .heroInner {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+  .heroVisual {
+    order: initial;
+  }
+  .heroSubtitle {
+    max-width: none;
+  }
+}
