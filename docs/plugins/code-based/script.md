@@ -41,6 +41,7 @@ top-level `await` (wrap awaiting code in `(async () => { … })()` or use
 | `ANY_PACKET`, `PacketGroups` | Packet name helpers. See [Packet interception](../../jnbotproxy/packetmanager.md). |
 | `DebugPlugin`, `RECORDINGS_PATH` | Packet debug recordings. See [Debug recordings](../../jnbotproxy/recorder.md). |
 | `script`      | The host-app API documented on this page.                                        |
+| `chain`       | The chain this plugin runs in, or `null` outside a chain. See [Chains](#chains). |
 
 ## Globals
 
@@ -778,3 +779,96 @@ new BotMachine(
 | `.resetOnce()`           | Re-arm all `once` tasks so they can fire again.                 |
 | `.onFinish(cb)`          | Register `cb({ bot, state })` to be called when the machine stops. |
 | `.onError(cb)`           | Register `cb(err, task, ctx)` for per-task error handling.      |
+| `.insertBefore(name, task)` | Add a task right before the task named `name`.               |
+| `.insertAfter(name, task)` | Add a task right after the task named `name`.                 |
+| `.replaceTask(name, task)` | Replace the task named `name`.                               |
+| `.removeTask(name)`      | Remove the task named `name`.                                   |
+| `.wrapTask(name, wrap)`  | Run `wrap(ctx, run)` instead; call `run(ctx)` to run the original task. |
+
+The five methods above find a task by its `name` and throw when there is none.
+They are mostly used to [patch another plugin](#patching-a-step) from a chain.
+
+---
+
+## Chains
+
+A [chain](../../features/chains.md) can be controlled with `chain`, in two
+places:
+
+- **The chain's setup code.** Open a chain's **⋯** menu and select **Edit setup
+  code** (on mobile, tap **Setup code**). It opens in the code editor with an
+  example to start from. This JavaScript runs for every alt before the steps,
+  with `chain` and `bot` in scope; `await` and `return` work. Use it to tune a
+  chain without adding a plugin for it.
+- **A plugin that runs as a step**, through `const { chain } = require("JNbot")`.
+  Outside a chain it is `null`.
+
+A chain runs its steps once per alt. Anything you change through `chain`
+(options, patches, disabled or added steps) lasts until it moves on to the next
+alt. Steps are referred to by their id, their plugin id (the first step running
+that plugin) or their name. Prefer the plugin id: it keeps working when a step
+or plugin is renamed.
+
+| Member                         | Purpose                                                                 |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| `chain.id`, `chain.name`       | The chain being run.                                                    |
+| `chain.bot`                    | The bot the chain runs on right now.                                    |
+| `chain.data`                   | Values returned by earlier steps (plus `alt`), used for `{key}` placeholders. |
+| `chain.steps`                  | Every step: `{ id, name, scriptId, options, enabled }`.                 |
+| `chain.current`                | The step running right now.                                             |
+| `chain.setOptions(step, options)` | Always run a step with these options, on top of its overrides. Calls add up. |
+| `chain.runStep(step, options?)` | Run a step on the chain's bot, as the chain would, with `options` on top. Resolves `false` when it fails. |
+| `chain.patch(step, patch)`     | Change the tasks of the step's `BotMachine` right before it starts. See below. |
+| `chain.disableStep(step)` / `chain.enableStep(step)` | Skip a step when the chain gets to it. `runStep` still runs it. |
+| `chain.addStep({ scriptId, name?, options? }, after?)` | Add a step after `after`, or at the end.            |
+| `chain.goTo(step)`             | After the current step, continue at this step.                          |
+| `chain.skipAlt()`              | After the current step, move on to the next alt.                        |
+| `chain.stop()`                 | After the current step, stop the chain.                                 |
+
+A step's options are combined in this order, later ones winning: the plugin's
+saved settings, the step's overrides in the chain editor, `chain.setOptions`,
+and the `options` of `chain.runStep`.
+
+If the setup code throws, the chain stops, since it would fail for every alt.
+
+### Chain options
+
+A chain can have its own options, defined like a
+[plugin's options](./action-options.md). In the setup code editor, select the
+gear button to add them. They appear in the chain's settings, and the setup
+code gets their values as `options` (also `script.settings`), with the same
+defaults and required checks as a plugin's. For example, with a switch option
+`salvage`:
+
+```js
+if (!options.salvage) chain.disableStep("Auto Salvage");
+```
+
+### Patching a step
+
+`chain.patch` lets you change how another plugin works without editing it,
+using the task methods of [`BotMachine`](#methods). The patch is applied
+right before the step's machine starts, and stays when the bot rejoins after a
+kick. If it throws (for example because a task name does not exist), the step
+fails instead of running unpatched.
+
+This setup code makes Kit Collector keep its kits and runs Auto Salvage
+whenever Kit Collector's inventory fills up, after which Kit Collector carries
+on where it was. Auto Salvage then also runs as the next step, for what is left:
+
+```js
+chain.setOptions("Kit Collector", { itemTransfer: "keep" });
+
+chain.patch("Kit Collector", (machine) => {
+  machine.wrapTask("Depositing items", async (ctx, run) => {
+    if (ctx.bot.inventory.emptySlotCount() < 8) {
+      await chain.runStep("Auto Salvage");
+    }
+    await run(ctx);
+  });
+});
+```
+
+While a patched task runs, the rest of that plugin waits, so its progress is
+kept. Task names are set by the plugin author and can change in a new version
+of the plugin; check them in the plugin's code.

@@ -25,3 +25,11 @@ JNbot runs every action in order for one eligible alt, then moves to the next. S
 To change the name, game mode, or alt filters later, select **Settings** and then **Save settings**.
 
 The action menu contains actions provided by installed plugins and the active server profile. If the action you need is missing, check that its plugin is installed and available for the active profile.
+
+## Setup code
+
+For advanced use, a chain can run a bit of JavaScript for every alt before its steps. Open the chain's **⋯** menu and select **Edit setup code** (on mobile, tap **Setup code**). The code editor opens with commented-out examples that use your chain's steps; remove the `//` in front of a line to use it. It can, for example, make sure Kit Collector keeps its kits, or run Auto Salvage whenever Kit Collector's inventory is full and then let Kit Collector carry on. It does not change the plugins themselves. See the [chain API](../plugins/code-based/script.md#chains).
+
+The setup code can also have options of its own: select the gear button in the code editor to add them, the same way as a plugin's options. You then set them in the chain's settings, so you can change how the chain works without editing its code.
+
+When you install a shared chain with setup code, the code is shown before you install it.

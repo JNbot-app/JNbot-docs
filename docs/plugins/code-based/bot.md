@@ -168,42 +168,83 @@ const gkitsWin = await bot.openWindow("/gkit", {
 
 Plain-text version of a window's title (handles NBT-formatted titles).
 
-### `bot.findWindowSlots(filter, options?)`
+### `bot.items(query?)`
 
-Search the open window for items matching a name and/or lore filter. Returns
-an array of slot objects.
+Find items in the open window and/or your inventory, whether or not a window
+is open. A string matches as a **case-insensitive substring** of the item's
+name, after stripping `§` color codes and small caps, so `"kit"` matches
+`§6ᴋɪᴛ Warrior`. Items that aren't renamed match on their vanilla name, so
+`"golden apple"` finds a plain golden apple. Results are plain items (with `.slot`), so they work with
+`bot.clickWindow`.
 
 ```js
-// Single string filter — searches item name
-const diamonds = bot.findWindowSlots("diamond");
+// First item whose name contains "kit": open window first, then inventory
+const kit = bot.items("kit").first();
 
-// Object filter — name AND lore
-const items = bot.findWindowSlots(
-  { name: "key", lore: "rare" },
-  { caseSensitive: false }
-);
+// A list matches any entry: "Starters Kit", "Confirmation of trade", ...
+const button = bot.items(["kit", "confirm"]).first();
 
-// Restrict the search to specific rows or columns
-const topRow = bot.findWindowSlots("shard", { rows: [0] });
-const leftCol = bot.findWindowSlots("rune", { columns: [0] });
+// Name AND lore, only in the top part of the open window
+await bot.items({ name: "key", lore: "rare" }).container().click();
 
-// Or an explicit slot range
-const partial = bot.findWindowSlots("ingot", { slotRange: [10, 11, 12, 19, 20, 21] });
+// Item id, regex or any predicate
+const diamonds = bot.items({ type: "diamond" }).inventory().count();
+const priced = bot.items({ lore: /price: \d+/i }).all();
+const stacks = bot.items((item) => item.count === 64).all();
+
+// Restrict to rows, columns or exact slots
+bot.items("shard").rows(0).all();
+bot.items("rune").cols(0).all();
+bot.items("ingot").slots(10, 11, 12).all();
+
+// Wait until an item shows up (also in a window that opens later)
+const confirm = await bot.items("Confirm").wait(40); // null after 40 ticks
+
+// Lazy iteration: scanning stops when you break
+for (const item of bot.items("rune")) { /* ... */ }
 ```
 
-| Option          | Type              | Description                                                                 |
-| --------------- | ----------------- | --------------------------------------------------------------------------- |
-| `caseSensitive` | boolean           | Default `false`. Match the filter exactly.                                  |
-| `rows`          | `number[]`        | Restrict the search to these rows (each row = 9 slots).                     |
-| `columns`       | `number[]`        | Restrict to these columns (0–8).                                            |
-| `slotRange`     | `number[]`        | Explicit list of slot indexes to search.                                    |
-| `window`        | `Inventory`       | Search a different window instead of `bot.currentWindow`.                   |
-| `toAlpha`       | boolean           | Normalize small-caps unicode letters before matching (`ʀᴀʀᴇ` → `rare`).      |
+**Query** (all given fields must match)
 
-The `filter` can be:
+| Field           | Type                                    | Description                                              |
+| --------------- | --------------------------------------- | -------------------------------------------------------- |
+| `name`          | string, RegExp, `(text) => boolean` or an array of these | Custom name. A plain string or array is shorthand for `{ name }`. |
+| `lore`          | same as `name`                          | Lore, lines joined with `\n`.                            |
+| `type`          | string or `string[]`                    | Minecraft item id, e.g. `"diamond_sword"`.               |
+| `where`         | `(item) => boolean`                     | Any extra check. A function is shorthand for `{ where }`. |
+| `caseSensitive` | boolean                                 | Default `false`. Colors are stripped either way.         |
 
-- a string (matches against the item name), or
-- an object with `name` and/or `lore` fields.
+An array matches when **any** entry matches. RegExps and functions get the color-stripped text with its case kept.
+
+**Scope** (chainable, default `any`)
+
+| Method                          | Searches                                                                   |
+| ------------------------------- | -------------------------------------------------------------------------- |
+| `.any()`                        | Container slots, then the player inventory (only the inventory without a window). |
+| `.container()`                  | Only the top part of the open window.                                      |
+| `.inventory()`                  | Only the player inventory, with or without an open window.                 |
+| `.hotbar()`                     | Only the 9 hotbar slots.                                                   |
+| `.rows(...rows)`, `.cols(...c)` | Container rows (9 slots each) / columns (0–8). Combined: slots in both.    |
+| `.slots(...indexes)`            | Exact window slot indexes.                                                 |
+
+**Results**
+
+| Method                    | Returns                                                       |
+| ------------------------- | ------------------------------------------------------------- |
+| `.first()`                | First match or `null`.                                        |
+| `.all()`                  | Array of all matches.                                         |
+| `.has()`                  | `true` if anything matches.                                   |
+| `.count()`                | Sum of `item.count` over all matches.                         |
+| `.click(button?, mode?)`  | Clicks the first match; resolves with it, or `null`.          |
+| `.wait(ticks = 100)`      | Resolves with the first match once it appears, or `null`.     |
+
+`bot.cleanText(text)` applies the same normalization (strip colors and small
+caps, lowercase) for your own matching, e.g. on chat or scoreboard text.
+
+### `bot.findWindowSlots(filter, options?)` (deprecated)
+
+Use `bot.items(query)` instead; `bot.findWindowSlots("diamond")` becomes
+`bot.items("diamond").container().all()`. It still works for existing plugins.
 
 ### `bot.openInventory()`
 
@@ -224,6 +265,8 @@ bot.clickWindow(12, 0, 0);
 | Method                       | Description                                                    |
 | ---------------------------- | -------------------------------------------------------------- |
 | `bot.itemInfo(slot)`         | Parsed `{ name, info }` for the item (lore is concatenated).   |
+| `bot.itemInfo.name(slot)`    | Only the item's name (skips parsing the lore).                 |
+| `bot.itemInfo.lore(slot)`    | Only the item's lore, lines joined with `\n`.                  |
 | `bot.hasFullInventory()`     | `true` if every slot in the main inventory is occupied.        |
 | `bot.countInventoryItems()`  | Number of non-clock items currently in the main inventory.     |
 
@@ -236,59 +279,153 @@ if (bot.hasFullInventory()) bot.chat("/trash");
 
 ## Item transfer
 
-`bot.transferItems` bundles the helpers for moving items in and out of trade
-windows. Every method is asynchronous and resolves when the transfer
-finishes (or rejects on timeout).
-
-### Trade with another player
+`bot.transfer(mode, target?, options?)` moves inventory items away. Pick a
+mode, give its target (a username for `trade`/`gift`, a command for
+`window`) and optionally choose which items go. It resolves with what left
+the inventory:
 
 ```js
-await bot.transferItems.trade({ username: "Zola" });
+const result = await bot.transfer("gift", "Zola");
+// { completed: true, count: 70, items: [{ name: "diamond", displayName: "Diamond", count: 64 }, ...] }
 ```
 
-### Gift to another player
+`completed` is `false` when the transfer hit its `timeout`.
+
+| Mode     | Target      | What it does                                |
+| -------- | ----------- | ------------------------------------------- |
+| `trade`  | username    | Trades the items to a player                |
+| `gift`   | username    | Gifts the items to a player                 |
+| `window` | command     | Moves the items into a window, e.g. `/ec`   |
+| `trash`  | none        | Deletes the items via the trash menu        |
+| `keep`   | none        | Does nothing (useful for a mode setting)    |
 
 ```js
-await bot.transferItems.gift({ username: "Zola" });
+await bot.transfer("gift", "Zola");          // gift every item
+await bot.transfer("window", "/ec");         // fill the ender chest
+await bot.transfer("trash");                 // trash everything
+await bot.transfer.trade("Zola");            // shorthand per mode
 ```
 
-### Filter what gets moved
+When `trade`/`gift` gets no username, the user is asked for one.
+
+### Choose which items
+
+`items` (what to send) and `exclude` (what to keep) take the same filters as
+[`bot.items`](#botitemsquery): a name, a list of names, `{ type, name, lore,
+where }` or a function. Mix several in a list to match any of them, e.g.
+`["kit", { type: "clock" }, (item) => item.count < 5]`.
 
 ```js
-// only diamonds and dirt
-await bot.transferItems.trade({ username: "Zola", filter: [1, "dirt"] });
+await bot.transfer("trade", "Zola", { items: { type: ["diamond", "emerald"] } });
+await bot.transfer("trash", { exclude: ["kit", { type: "clock" }] });
+await bot.transfer("gift", "Zola", { items: { lore: "rare" }, exclude: "soulbound" });
+```
 
-// ignore wool & keep a specific item
-await bot.transferItems.gift(2, {
-  username: "Zola",
-  ignore: [35],
-  itemFilter: (item) => item.name !== "diamond_sword",
+Or start from a `bot.items` query; it transfers the matching inventory items:
+
+```js
+await bot.items({ type: "diamond" }).transfer("trade", "Zola");
+await bot.items("kit").transfer("trash");
+```
+
+### Send crate keys
+
+`trade` and `gift` can send virtual crate keys along. They are sent even when
+there are no items to transfer, unless you pass `keysWithoutItems: false`.
+Gifts add them through the gift window's
+"Send Crate Keys" page; when a key or the key page is missing, the bot logs a
+warning and sends without it.
+
+```js
+await bot.transfer("gift", "Zola", {
+  keys: [
+    { keyName: "vote", amount: 3 },
+    { keyName: "rare", amount: 1 },
+  ],
 });
 ```
 
-### Transfer into a server window
+### Other options
+
+- `timeout`: give up after this many ms (`completed: false`).
+- `shiftClick` (`window`, default `true`): set to `false` for servers that
+  block shift-clicking into their window.
+
+### Custom modes
+
+Add a mode for this bot with `bot.transfer.addMode(name, { target, keys,
+tasks })`, e.g. from the server's bot extension. `tasks` are
+[BotMachine](./script.md#botmachine) tasks (or a function returning them) and must call
+`machine.finish()` when done. Their `state` holds:
+
+- `state.items`: a live `bot.items` query of the items to transfer
+- the target under its name (`state.price` below)
+- `state.options`: every option passed, including your own
+- `state.keys`: the keys to send, when the mode sets `keys: true`
+
+Adding a mode with a built-in name replaces it for this bot.
 
 ```js
-await bot.transferItems.window(3, {
-  filter: [1, "dirt"],
-  command: "/trash",
+bot.transfer.addMode("auction", {
+  target: "price",
+  tasks: [
+    { name: "Done", when: ({ state }) => !state.items.has(), run: ({ machine }) => machine.finish() },
+    {
+      name: "Listing item",
+      when: () => true,
+      run: async ({ bot, state }) => {
+        await bot.equip(state.items.first(), "hand");
+        bot.chat(`/ah sell ${state.price}`);
+        await bot.waitForTicks(20);
+      },
+    },
+  ],
 });
+
+await bot.items("diamond").transfer("auction", 500);
+await bot.transfer.auction(500); // every mode gets a shortcut
 ```
 
-### Trade with key counts
+### `bot.transferItems` (deprecated)
+
+The old `bot.transferItems(mode, { username, filter, ignore, keep, sendKeys,
+keys: ["vote,10"] })` still works but is deprecated; use `bot.transfer`.
+
+### Server-specific transfer config
+
+Commands, window titles and buttons differ per server and change often. Each
+bot has its own `bot.transfer.config`; adjust it from the server's bot
+extension with `configure`, which deep-merges your overrides into the
+defaults. Only list what differs.
 
 ```js
-await bot.transferItems.tradeWithKeys({
-  username: "Zola",
-  keys: ["vote,10", "rare,5", "ultra,2", "god,1"],
-});
+function main(bot) {
+  bot.transfer.configure({
+    trade: { command: "/trade {username}", acceptButton: "glass" },
+    gift: {
+      command: "/gift {username}",
+      confirmWindowTitle: ["are you sure", "confirm gift"],
+      confirmButton: ["green_terracotta", "confirm"],
+      depositWindowTitle: ["select items to send", "send items"],
+      keysOwnedLore: /keys owned:\s*(\d+)/i, // first group = number of keys
+    },
+    trash: { command: "/trash", windowTitle: ["trash", "disposal"] },
+  });
+}
 ```
 
-### Trash items
+- Strings match case-insensitively with color codes stripped, and may use
+  `{username}`. RegExps are tested on the text with color codes stripped, so
+  add the `i` flag to ignore case.
+- A title or button can be a list (any entry matches), a string, a RegExp or a function,
+  so one config keeps working while a server rolls out a renamed window.
+  Buttons are matched against the item id, display name and lore, e.g.
+  `(item) => item.name === "lime_dye"`.
+- Fallback slots (`trade.acceptSlot`, `gift.confirmSlot`, ...) are used when a
+  button can't be found.
+- `bot.transfer.resetConfig()` restores the defaults.
 
-```js
-await bot.transferItems.trash({ ignore: ["diamond_block"] });
-```
+See `TransferConfig` in the plugin types for every option.
 
 ---
 

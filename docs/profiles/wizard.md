@@ -36,7 +36,17 @@ If a gamemode has GKits, mark it as kit-based so it appears in the **Ranks & Kit
 
 ![The gamemode join menu with Auto, Already there on connect, Run a command, and Open a server selector options](/img/guides/profile-join-methods.png)
 
-**Auto** sends a command first, then opens the server selector and looks for the gamemode by name if the command fails. Choose **Already there on connect** if the server routes bots to the right place automatically. Use **Run a command** or **Open a server selector** when you need to pick one method yourself. For custom navigation, see the [Bot API guide](../plugins/code-based/bot.md#gamemode-navigation).
+**Auto** sends a command first, then opens the server selector and looks for the gamemode by name if the command fails. Choose **Already there on connect** if the server routes bots to the right place automatically. Use **Run a command** or **Open a server selector** when you need to pick one method yourself.
+
+If none of these work for your server, choose **Run an action** and pick, import, or create an action that brings the bot to the gamemode. JNbot calls its `main(bot, settings, [gamemode])` instead of the built-in steps. Return `false` (or throw) when joining failed. The action is included when you export or share the profile. For the navigation helpers you can use inside it, see the [Bot API guide](../plugins/code-based/bot.md#gamemode-navigation).
+
+```js
+async function main(bot, settings, [gamemode]) {
+  const win = await bot.openWindow("/menu");
+  if (!win) return false;
+  if (!(await bot.items(gamemode).click())) return false;
+}
+```
 
 ## Optional sections
 
